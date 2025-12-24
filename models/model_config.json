@@ -1,0 +1,33 @@
+{
+  "version": "1.1.0",
+  "timestamp": "20251224_172738",
+  "architecture": "AutoencoderIDS",
+  "input_dim": 37,
+  "latent_dim": 16,
+  "hidden_dims": [
+    128,
+    64,
+    32
+  ],
+  "num_classes": 7,
+  "class_names": [
+    "Bots",
+    "Brute Force",
+    "DDoS",
+    "DoS",
+    "Normal Traffic",
+    "Port Scanning",
+    "Web Attacks"
+  ],
+  "metrics": {
+    "accuracy": 0.9654844606946984,
+    "f1_weighted": 0.9665361916350035,
+    "f1_macro": 0.9280082475516966,
+    "mcc": 0.9578397867414901,
+    "roc_auc": 0.994463480258646
+  },
+  "thresholds": {
+    "anomaly": 0.5,
+    "high_confidence": 0.85
+  }
+}
