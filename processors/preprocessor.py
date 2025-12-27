@@ -1,4 +1,3 @@
-# processors/preprocessor.py
 import joblib
 import json
 import pandas as pd
@@ -14,20 +13,31 @@ class DataPreprocessor(KafkaProcessor):
             self.feature_names = json.load(f)
 
     def process(self, data):
-        # 1. Créer le DF et s'assurer que toutes les colonnes requises existent
-        df = pd.DataFrame([data])
-        
-        # Ajouter les colonnes manquantes (si le capteur ne les envoie pas toutes)
+        # 1. Création d'un dictionnaire "propre" (on enlève les espaces des clés reçues)
+        # On ne garde que les clés utiles pour le modèle
+        clean_data = {}
+        # On crée un mapping insensible aux espaces pour les données reçues
+        input_map = {k.strip(): v for k, v in data.items() if isinstance(k, str)}
+
+        # 2. Construction du vecteur selon l'ordre strict de feature_names
+        final_values = []
         for col in self.feature_names:
-            if col not in df.columns:
-                df[col] = 0.0
+            col_clean = col.strip()
+            # On cherche la valeur, sinon 0.0
+            val = input_map.get(col_clean, 0.0)
+            final_values.append(val)
 
-        # 2. Nettoyage identique au notebook
-        X = df[self.feature_names].copy()
-        X = X.replace([np.inf, -np.inf], np.nan)
-        X = X.fillna(0.0) # On utilise 0.0 car la médiane n'est pas exportée
+        # 3. Transformation en array Numpy pour éviter les UserWarnings de Scikit-Learn
+        X = np.array(final_values).reshape(1, -1)
+        
+        # Remplacement des infinis/NaN par précaution
+        X = np.nan_to_num(X, nan=0.0, posinf=0.0, neginf=0.0)
 
-        # 3. Normalisation
+        # A. Clipping d'abord (utiliser les percentiles chargés dans l'init)
+        # Note: Vous devez charger percentiles.joblib dans le __init__ du preprocessor
+        # X = np.clip(X, self.percentiles['p01'], self.percentiles['p99'])
+
+        # 4. Normalisation
         df_scaled = self.scaler.transform(X)
         
         output = {

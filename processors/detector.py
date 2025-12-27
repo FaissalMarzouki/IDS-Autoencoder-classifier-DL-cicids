@@ -84,14 +84,14 @@ class IDSDetector(KafkaProcessor):
         print("✅ Détecteur initialisé avec l'architecture hybride complète.")
 
     def process(self, data):
-        # 1. Extraction et Preprocessing (Clipping + Scaling)
+        # 1. On récupère les features DÉJÀ scalées par le preprocessor
         feat_array = np.array(data['features']).reshape(1, -1)
-        # Appliquer le clipping comme dans le notebook
-        feat_clipped = np.clip(feat_array, self.percentiles['p01'], self.percentiles['p99'])
-        feat_scaled = self.scaler.transform(feat_clipped)
         
-        # 2. Inférence
-        features_tensor = torch.tensor(feat_scaled, dtype=torch.float32)
+        # 2. Conversion directe en Tensor (PAS DE SCALER ICI !)
+        features_tensor = torch.tensor(feat_array, dtype=torch.float32).to(self.device)
+        
+        # 3. Inférence
+        self.model.eval()
         with torch.no_grad():
             logits = self.model(features_tensor)
             probs = torch.softmax(logits, dim=1)
@@ -99,7 +99,8 @@ class IDSDetector(KafkaProcessor):
             
         prediction = self.label_encoder.inverse_transform([pred_idx.item()])[0]
         
-        # 3. Alerte si ce n'est pas BENIGN
-        if prediction != "Normal Traffic": # Ajuste selon le nom exact dans ton label_encoder
+        # Debug pour le test
+        # print(f"🔍 [DEBUG] Prediction: {prediction} | Confidence: {conf.item():.2%}")
+        
+        if prediction != "Normal Traffic":
             print(f"🚨 ALERT: {prediction} (Confiance: {conf.item():.2%})")
-            # Envoi vers Kafka topic 'alerts'
