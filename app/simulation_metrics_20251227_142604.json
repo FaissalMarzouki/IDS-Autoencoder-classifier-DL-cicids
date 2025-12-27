@@ -1,0 +1,45 @@
+{
+  "timestamp": "2025-12-27T14:26:04.013841",
+  "uptime_seconds": 1.585033,
+  "total_flows": 1000,
+  "attacks_detected": 1000,
+  "normal_traffic": 0,
+  "anomalies": 66,
+  "alerts_sent": 0,
+  "confusion_matrix": {
+    "true_positives": 868,
+    "false_positives": 132,
+    "true_negatives": 0,
+    "false_negatives": 0
+  },
+  "rates": {
+    "precision": 0.868,
+    "recall": 1.0,
+    "f1_score": 0.9293,
+    "false_positive_rate": 1.0,
+    "false_negative_rate": 0.0
+  },
+  "performance": {
+    "avg_inference_time_ms": 1.12,
+    "throughput_flows_per_sec": 630.88
+  },
+  "predictions_distribution": {
+    "Port Scanning": 137,
+    "Bots": 168,
+    "DDoS": 140,
+    "Web Attacks": 132,
+    "Brute Force": 162,
+    "Normal Traffic": 117,
+    "DoS": 144
+  },
+  "false_positives_by_class": {
+    "Normal Traffic": 117,
+    "Bots": 5,
+    "Brute Force": 4,
+    "Port Scanning": 2,
+    "DDoS": 2,
+    "DoS": 1,
+    "Web Attacks": 1
+  },
+  "false_negatives_by_class": {}
+}
