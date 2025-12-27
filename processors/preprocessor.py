@@ -9,6 +9,7 @@ class DataPreprocessor(KafkaProcessor):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.scaler = joblib.load(f"{ARTIFACTS_PATH}scaler.joblib")
+        self.percentiles = joblib.load(f"{ARTIFACTS_PATH}percentiles.joblib")
         with open(f"{ARTIFACTS_PATH}feature_names.json", "r") as f:
             self.feature_names = json.load(f)
 
@@ -34,8 +35,7 @@ class DataPreprocessor(KafkaProcessor):
         X = np.nan_to_num(X, nan=0.0, posinf=0.0, neginf=0.0)
 
         # A. Clipping d'abord (utiliser les percentiles chargés dans l'init)
-        # Note: Vous devez charger percentiles.joblib dans le __init__ du preprocessor
-        # X = np.clip(X, self.percentiles['p01'], self.percentiles['p99'])
+        X = np.clip(X, self.percentiles['p01'], self.percentiles['p99'])
 
         # 4. Normalisation
         df_scaled = self.scaler.transform(X)

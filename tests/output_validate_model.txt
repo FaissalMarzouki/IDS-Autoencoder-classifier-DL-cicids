@@ -1,0 +1,60 @@
+┌──(brokers)─(omar㉿Dell)-[~/…/ENSET/S5/Projet_IDS_Hybride/IDS-Autoencoder-classifier-DL-cicids]
+└─$ python3 ./tests/validate_model_quality.py 
+================================================================================
+🔬 TEST DE QUALITÉ DU MODÈLE
+================================================================================
+/home/omar/Documents/ENSET/S5/Projet_IDS_Hybride/brokers/lib/python3.13/site-packages/sklearn/base.py:463: InconsistentVersionWarning: Trying to unpickle estimator StandardScaler from version 1.7.2 when using version 1.8.0. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:
+https://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations
+  warnings.warn(
+/home/omar/Documents/ENSET/S5/Projet_IDS_Hybride/brokers/lib/python3.13/site-packages/sklearn/base.py:463: InconsistentVersionWarning: Trying to unpickle estimator LabelEncoder from version 1.7.2 when using version 1.8.0. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:
+https://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations
+  warnings.warn(
+✅ Détecteur initialisé avec l'architecture hybride complète.
+
+📊 Classes du modèle (7):
+   0: Bots
+   1: Brute Force
+   2: DDoS
+   3: DoS
+   4: Normal Traffic
+   5: Port Scanning
+   6: Web Attacks
+
+================================================================================
+TEST 1: Distribution avec données aléatoires
+================================================================================
+
+📈 Prédictions sur 100 samples aléatoires:
+   Bots                :   6 (  6.0%)
+   Brute Force         :   3 (  3.0%)
+   DDoS                :   9 (  9.0%)
+   DoS                 :  29 ( 29.0%)
+   Normal Traffic      :  38 ( 38.0%)
+   Port Scanning       :  15 ( 15.0%)
+   Web Attacks         :   0 (  0.0%)
+
+================================================================================
+TEST 2: Vérification des poids du modèle
+================================================================================
+
+📦 Nombre de paramètres:
+   Total: 36,028
+   Entraînables: 36,028
+
+   encoder.0.weight:
+     Min: -1.151858, Max: 0.562947
+
+   encoder.0.bias:
+     Min: -0.021066, Max: 0.019750
+
+   encoder.1.weight:
+     Min: 0.760100, Max: 1.362165
+
+================================================================================
+TEST 3: Énergie du classifier (poids finaux)
+================================================================================
+
+Poids du classifier (torch.Size([7, 32])):
+   Min: -2.7652, Max: 0.8807
+   Variance moyenne par neurone: 0.602828
+                                          
