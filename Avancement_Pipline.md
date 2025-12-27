@@ -5,7 +5,7 @@
 
 * [x] **Phase 1** : Entraînement du modèle hybride (Autoencoder + Classifier) - **Terminé**
 * [x] **Phase 2** : Exportation des artefacts (Modèle, Scaler, Labels) - **Terminé**
-* [ ] **Phase 3** : Pipeline de streaming temps-réel (Kafka + Preprocessors) - **En cours** 
+* [ ] **Phase 3** : Pipeline de streaming temps-réel (Kafka + Preprocessors) - **à valider/tester** 
 * [ ] **Phase 4** : Module d'explicabilité (LLM Explainer) - **À venir** 
 * [ ] **Phase 5** : Dashboard de monitoring (ELK Stack) - **À venir** 
 

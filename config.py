@@ -11,7 +11,8 @@ TOPICS = {
 
 # Model Config (Issu de config.json / notebook)
 ARTIFACTS_PATH = "models/artifacts/"
-INPUT_DIM = 52
+INPUT_DIM = 37
 LATENT_DIM = 16
 NUM_CLASSES = 7
+HIDDEN_DIMS = [128, 64, 32]
 DEVICE = "cpu" # Ou 'cuda' si disponible
