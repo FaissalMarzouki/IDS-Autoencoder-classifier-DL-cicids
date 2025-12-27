@@ -1,335 +1,635 @@
 # IDS Kafka Pipeline - Guide d'Utilisation
 
-## Description
+Application de detection d'intrusions en temps reel utilisant le modele AutoencoderIDS avec Apache Kafka.
 
-Application de detection d'intrusions reseau en temps reel utilisant un modele 
-Autoencoder+Classifier entraine sur le dataset CICIDS2017.
+## Table des Matieres
 
-L'application consomme des flux reseau depuis Kafka, effectue des predictions 
-avec le modele de deep learning, et publie les alertes sur les topics de sortie.
+1. [Architecture du Systeme](#architecture-du-systeme)
+2. [Pre-requis](#pre-requis)
+3. [Installation](#installation)
+4. [Configuration du Cluster Kafka](#configuration-du-cluster-kafka)
+5. [Modes d'Utilisation](#modes-dutilisation)
+6. [Guide Detaille par Mode](#guide-detaille-par-mode)
+7. [Format des Messages Kafka](#format-des-messages-kafka)
+8. [Metriques et Evaluation](#metriques-et-evaluation)
+9. [Exemples de Workflows](#exemples-de-workflows)
+10. [Troubleshooting](#troubleshooting)
 
+---
 
-## Prerequis
-
-Logiciels requis:
-- Python 3.8+
-- Docker avec le cluster Kafka (deja configure par le collegue)
-
-Installation des dependances Python:
-```
-pip install torch numpy pandas scikit-learn joblib kafka-python
-```
-
-
-## Topics Kafka Utilises
-
-Les topics suivants doivent etre disponibles dans le cluster:
-
-| Topic | Direction | Description |
-|-------|-----------|-------------|
-| ids-raw-data | Entree | Flux reseau bruts a analyser |
-| ids-features | Intermediaire | Features extraites (optionnel) |
-| ids-alerts | Sortie | Alertes de detection |
-| ids-explanations | Sortie | Explications detaillees des alertes |
-
-
-## Modes d'Execution
-
-### 1. Mode Simulation (sans Kafka - pour tests locaux)
-
-Permet de tester le modele sans avoir besoin du cluster Kafka.
-Utilise le dataset local pour simuler du trafic.
+## Architecture du Systeme
 
 ```
-cd app
-python kafka_ids_pipeline.py --mode simulation --count 1000
+                                    CLUSTER KAFKA
+                                    +------------------+
+                                    |                  |
++----------------+    produce       |  ids-raw-data    |
+|   Producer     | ---------------> |  (3 partitions)  |
+| (Simulateur)   |                  |                  |
++----------------+                  +--------+---------+
+                                             |
+                                             | consume
+                                             v
+                                    +------------------+
+                                    |    Consumer      |
+                                    |  (IDS Predictor) |
+                                    +--------+---------+
+                                             |
+                         +-------------------+-------------------+
+                         |                                       |
+                         v                                       v
+              +------------------+                    +------------------+
+              |   ids-alerts     |                    | ids-explanations |
+              | (1 partition)    |                    | (1 partition)    |
+              +------------------+                    +------------------+
 ```
 
-Options:
-- --count N : Nombre de flux a traiter (defaut: 1000)
-- --dataset PATH : Chemin vers le dataset CSV
-
-
-### 2. Mode Producteur (envoi de trafic simule vers Kafka)
-
-Envoie des flux simules depuis le dataset vers le topic ids-raw-data.
-Utile pour tester le pipeline complet.
+### Fichiers du Projet
 
 ```
-cd app
-python kafka_ids_pipeline.py --mode producer --count 500 --delay 0.1
+app/
+|-- kafka_ids_pipeline.py   # Script principal (3 modes)
+|-- predictor.py            # Module de prediction avec le modele
+|-- traffic_simulator.py    # Simulateur de trafic reseau
+|-- metrics_tracker.py      # Calcul des metriques (FP, FN, etc.)
+|-- requirements.txt        # Dependances Python
+|-- README.md               # Ce fichier
++-- metrics/                # Rapports de simulation
 ```
 
-Options:
-- --count N : Nombre de flux a envoyer
-- --delay S : Delai entre chaque flux en secondes (defaut: 0.01)
-- --bootstrap-servers HOST:PORT : Adresse du broker Kafka (defaut: localhost:9092)
+---
 
+## Pre-requis
 
-### 3. Mode Consommateur (traitement des flux depuis Kafka)
+### Logiciels Requis
 
-Consomme les flux depuis ids-raw-data, effectue les predictions,
-et publie les resultats sur ids-alerts et ids-explanations.
+- Python 3.8 ou superieur
+- Docker avec le cluster Kafka en cours d'execution
+- Acces au cluster Kafka sur localhost:9092
 
-```
-cd app
-python kafka_ids_pipeline.py --mode consumer --max 1000
-```
+### Verification de l'Environnement
 
-Options:
-- --max N : Nombre maximum de messages a traiter (optionnel, sans limite par defaut)
-- --bootstrap-servers HOST:PORT : Adresse du broker Kafka
+```bash
+# Verifier Python
+python --version
 
-Pour arreter: Ctrl+C (le rapport final sera affiche automatiquement)
+# Verifier que Docker est en cours d'execution
+docker ps
 
-
-### 4. Mode Complet (producteur + consommateur)
-
-Lance simultanement le producteur et le consommateur pour un test complet.
-
-```
-cd app
-python kafka_ids_pipeline.py --mode full --count 500
+# Verifier que Kafka est accessible
+docker exec -it kafka kafka-broker-api-versions --bootstrap-server localhost:9092
 ```
 
+---
 
-## Configuration du Broker Kafka
+## Installation
 
-Si le broker Kafka n'est pas sur localhost:9092, specifier l'adresse:
+### Etape 1: Cloner le Repository
 
-```
-python kafka_ids_pipeline.py --mode consumer --bootstrap-servers kafka-broker:9092
-```
-
-Pour un cluster multi-brokers:
-```
-python kafka_ids_pipeline.py --mode consumer --bootstrap-servers broker1:9092,broker2:9092
+```bash
+git clone https://github.com/FaissalMarzouki/IDS-Autoencoder-classifier-DL-cicids.git
+cd IDS-Autoencoder-classifier-DL-cicids/app
 ```
 
+### Etape 2: Installer les Dependances Python
+
+```bash
+pip install -r requirements.txt
+```
+
+Dependances principales:
+- torch >= 2.0.0
+- numpy >= 1.24.0
+- pandas >= 2.0.0
+- scikit-learn >= 1.3.0
+- joblib >= 1.3.0
+- kafka-python >= 2.0.2
+
+### Etape 3: Verifier les Fichiers du Modele
+
+Les fichiers suivants doivent exister dans le dossier ../models/:
+
+```
+models/
+|-- autoencoder_ids_v1.1.0.pt    # Poids du modele PyTorch
+|-- model_config.json            # Configuration du modele
+|-- scaler.joblib                # Normalisateur StandardScaler
+|-- label_encoder.joblib         # Encodeur des labels
+|-- feature_names.json           # Liste des 37 features
++-- percentiles.joblib           # Percentiles pour le clipping
+```
+
+---
+
+## Configuration du Cluster Kafka
+
+### Topics Requis
+
+Le cluster Kafka doit contenir les 4 topics suivants:
+
+| Topic | Role | Partitions | Description |
+|-------|------|------------|-------------|
+| ids-raw-data | Input | 3 | Donnees brutes de trafic reseau |
+| ids-features | Intermediaire | 3 | Features extraites (optionnel) |
+| ids-alerts | Output | 1 | Alertes de detection d'attaques |
+| ids-explanations | Output | 1 | Explications detaillees des predictions |
+
+### Verification des Topics Existants
+
+```bash
+docker exec -it kafka kafka-topics --list --bootstrap-server localhost:9092
+```
+
+Resultat attendu:
+```
+ids-alerts
+ids-explanations
+ids-features
+ids-raw-data
+```
+
+### Creation des Topics (si necessaire)
+
+Si les topics n'existent pas, les creer avec les commandes suivantes:
+
+```bash
+# Topic ids-raw-data
+docker exec -it kafka kafka-topics --create \
+  --topic ids-raw-data \
+  --bootstrap-server localhost:9092 \
+  --partitions 3 \
+  --replication-factor 1
+
+# Topic ids-features
+docker exec -it kafka kafka-topics --create \
+  --topic ids-features \
+  --bootstrap-server localhost:9092 \
+  --partitions 3 \
+  --replication-factor 1
+
+# Topic ids-alerts
+docker exec -it kafka kafka-topics --create \
+  --topic ids-alerts \
+  --bootstrap-server localhost:9092 \
+  --partitions 1 \
+  --replication-factor 1
+
+# Topic ids-explanations
+docker exec -it kafka kafka-topics --create \
+  --topic ids-explanations \
+  --bootstrap-server localhost:9092 \
+  --partitions 1 \
+  --replication-factor 1
+```
+
+### Verification de la Configuration d'un Topic
+
+```bash
+docker exec -it kafka kafka-topics --describe \
+  --topic ids-raw-data \
+  --bootstrap-server localhost:9092
+```
+
+---
+
+## Modes d'Utilisation
+
+Le script kafka_ids_pipeline.py supporte 3 modes de fonctionnement:
+
+| Mode | Description | Kafka Requis |
+|------|-------------|--------------|
+| simulation | Test local sans Kafka | Non |
+| producer | Envoie des flux vers Kafka | Oui |
+| consumer | Recoit et analyse les flux | Oui |
+
+### Arguments de Ligne de Commande
+
+```
+Arguments obligatoires:
+  --mode          Mode: producer, consumer, simulation
+
+Arguments optionnels:
+  --count         Nombre de flux a traiter (defaut: 100)
+  --attack-ratio  Proportion d'attaques entre 0.0 et 1.0 (defaut: 0.3)
+  --delay         Delai entre messages en secondes (defaut: 0)
+  --models-dir    Chemin vers le dossier des modeles (defaut: ../models)
+  --dataset       Chemin vers le dataset CSV (defaut: ../dataset/cicids2017_cleaned.csv)
+  --kafka-server  Adresse du serveur Kafka (defaut: localhost:9092)
+  --verbose, -v   Afficher chaque prediction
+  --no-save       Ne pas sauvegarder le rapport de metriques
+```
+
+---
+
+## Guide Detaille par Mode
+
+### Mode 1: Simulation (Test Local)
+
+Ce mode permet de tester le modele sans avoir besoin de Kafka.
+
+#### Commande de Base
+
+```bash
+python kafka_ids_pipeline.py --mode simulation --count 100
+```
+
+#### Options Avancees
+
+```bash
+# Test avec 500 flux et 40% d'attaques, affichage detaille
+python kafka_ids_pipeline.py --mode simulation --count 500 --attack-ratio 0.4 --verbose
+
+# Test massif (1000 flux, 30% attaques, sans verbose)
+python kafka_ids_pipeline.py --mode simulation --count 1000 --attack-ratio 0.3
+
+# Test sans sauvegarde du rapport
+python kafka_ids_pipeline.py --mode simulation --count 200 --no-save
+```
+
+#### Exemple de Sortie
+
+```
+============================================================
+IDS KAFKA PIPELINE
+============================================================
+
+Chargement du modele...
+  - Classes: ['Bots', 'Brute Force', 'DDoS', 'DoS', 'Normal Traffic', 'Port Scanning', 'Web Attacks']
+  - Features: 37
+
+Chargement du dataset...
+  - Flux disponibles: 2520751
+  - Types d'attaques: 7
+
+[SIMULATION] Test de 1000 flux sans Kafka
+  - Attack ratio: 30%
+  - Verbose: False
+
+  Traite: 100/1000 (Accuracy: 93.0%)
+  Traite: 200/1000 (Accuracy: 94.0%)
+  ...
+
+============================================================
+RAPPORT DE DETECTION IDS
+============================================================
+
+Flux traites: 1000
+Duree: 58.30s (17.2 flux/s)
+
+--- METRIQUES BINAIRES (Attack vs Normal) ---
+Accuracy:     92.00%
+Precision:    79.53%
+Recall:       99.68%
+F1-Score:     88.47%
+
+--- ERREURS ---
+Faux Positifs (FP): 79 (11.42%)
+Faux Negatifs (FN): 1 (0.32%)
+
+--- MATRICE DE CONFUSION ---
+True Positives:  307
+True Negatives:  613
+False Positives: 79
+False Negatives: 1
+
+============================================================
+```
+
+---
+
+### Mode 2: Producer (Envoi vers Kafka)
+
+Ce mode envoie des flux reseau simules vers le topic ids-raw-data.
+
+#### Commande de Base
+
+```bash
+python kafka_ids_pipeline.py --mode producer --count 1000
+```
+
+#### Options Avancees
+
+```bash
+# Envoi de 500 flux avec 50% d'attaques
+python kafka_ids_pipeline.py --mode producer --count 500 --attack-ratio 0.5
+
+# Envoi avec delai de 100ms entre chaque message (simulation temps reel)
+python kafka_ids_pipeline.py --mode producer --count 1000 --delay 0.1
+
+# Envoi vers un serveur Kafka distant
+python kafka_ids_pipeline.py --mode producer --count 500 --kafka-server 192.168.1.100:9092
+```
+
+#### Verification des Messages Envoyes
+
+Dans un autre terminal, lire les messages du topic:
+
+```bash
+docker exec -it kafka kafka-console-consumer \
+  --topic ids-raw-data \
+  --bootstrap-server localhost:9092 \
+  --from-beginning \
+  --max-messages 5
+```
+
+---
+
+### Mode 3: Consumer (Reception et Analyse)
+
+Ce mode consomme les flux depuis ids-raw-data, execute le modele IDS, et publie les resultats.
+
+#### Commande de Base
+
+```bash
+python kafka_ids_pipeline.py --mode consumer
+```
+
+#### Options
+
+```bash
+# Consumer avec affichage detaille
+python kafka_ids_pipeline.py --mode consumer --verbose
+
+# Consumer connecte a un serveur distant
+python kafka_ids_pipeline.py --mode consumer --kafka-server 192.168.1.100:9092
+```
+
+#### Flux de Donnees
+
+1. Lecture depuis: ids-raw-data
+2. Traitement: Prediction avec le modele AutoencoderIDS
+3. Publication des alertes vers: ids-alerts (uniquement si attaque detectee)
+4. Publication des explications vers: ids-explanations (pour chaque flux)
+
+#### Arret du Consumer
+
+Appuyer sur Ctrl+C pour arreter proprement. Le rapport final sera affiche.
+
+---
 
 ## Format des Messages Kafka
 
-### Message d'entree (topic: ids-raw-data)
+### Topic: ids-raw-data (Input)
+
+Format des messages envoyes par le producer:
 
 ```json
 {
-    "flow_id": "flow_001",
-    "features": [0.1, 0.2, 0.3, ...],
-    "true_label": "DDoS",
-    "timestamp": "2024-01-15T10:30:00Z"
+  "flow_id": "sim_00000001",
+  "features": [80.0, 0.0, 2.0, 128.0, ...],
+  "label": "Normal Traffic",
+  "timestamp": 1703672400.0
 }
 ```
 
 Champs:
-- features : Array de 37 valeurs numeriques (ordre dans models/feature_names.json)
-- true_label : Optionnel, uniquement pour evaluation des performances
-- flow_id : Identifiant unique du flux
+- flow_id: Identifiant unique du flux
+- features: Tableau de 37 valeurs numeriques (features reseau)
+- label: Label reel (pour evaluation)
+- timestamp: Horodatage Unix
 
+### Topic: ids-alerts (Output)
 
-### Message de sortie - Alertes (topic: ids-alerts)
+Format des alertes publiees quand une attaque est detectee:
 
 ```json
 {
-    "flow_id": "flow_001",
-    "timestamp": "2024-01-15T10:30:01Z",
-    "alert_type": "ATTACK_DETECTED",
+  "timestamp": "2024-12-27T10:30:00.123456",
+  "flow_id": "sim_00000001",
+  "alert_type": "DDoS",
+  "is_attack": true,
+  "confidence": 0.9534,
+  "anomaly_score": 0.002341,
+  "true_label": "DDoS",
+  "correct": true
+}
+```
+
+Champs:
+- timestamp: Date et heure de l'alerte
+- flow_id: Identifiant du flux concerne
+- alert_type: Type d'attaque detectee
+- is_attack: Toujours true (seules les attaques sont publiees ici)
+- confidence: Confiance de la prediction (0.0 a 1.0)
+- anomaly_score: Score d'anomalie base sur l'erreur de reconstruction
+- true_label: Label reel (pour evaluation)
+- correct: True si la prediction correspond au label reel
+
+### Topic: ids-explanations (Output)
+
+Format des explications detaillees pour chaque flux:
+
+```json
+{
+  "timestamp": "2024-12-27T10:30:00.123456",
+  "flow_id": "sim_00000001",
+  "prediction": {
+    "flow_id": "sim_00000001",
     "predicted_class": "DDoS",
-    "confidence": 0.95,
-    "anomaly_score": 0.82,
-    "is_anomaly": true,
-    "true_label": "DDoS",
-    "is_correct": true
+    "predicted_class_id": 2,
+    "confidence": 0.9534,
+    "anomaly_score": 0.002341,
+    "is_attack": true,
+    "all_probabilities": {
+      "Bots": 0.0012,
+      "Brute Force": 0.0023,
+      "DDoS": 0.9534,
+      "DoS": 0.0312,
+      "Normal Traffic": 0.0089,
+      "Port Scanning": 0.0015,
+      "Web Attacks": 0.0015
+    }
+  },
+  "true_label": "DDoS",
+  "analysis": {
+    "is_correct": true,
+    "top_3_classes": [
+      ["DDoS", 0.9534],
+      ["DoS", 0.0312],
+      ["Normal Traffic", 0.0089]
+    ]
+  }
 }
 ```
 
-Valeurs possibles pour alert_type: ATTACK_DETECTED, NORMAL
+---
 
+## Metriques et Evaluation
 
-### Message de sortie - Explications (topic: ids-explanations)
+### Metriques Calculees
 
-Publie uniquement pour les attaques detectees.
+| Metrique | Description |
+|----------|-------------|
+| Accuracy | Pourcentage de predictions correctes |
+| Precision | TP / (TP + FP) - Fiabilite des alertes |
+| Recall | TP / (TP + FN) - Taux de detection des attaques |
+| F1-Score | Moyenne harmonique de Precision et Recall |
+| FPR | Taux de faux positifs (fausses alertes) |
+| FNR | Taux de faux negatifs (attaques manquees) |
+
+### Definition des Erreurs
+
+- True Positive (TP): Attaque correctement detectee
+- True Negative (TN): Trafic normal correctement identifie
+- False Positive (FP): Trafic normal detecte comme attaque (fausse alerte)
+- False Negative (FN): Attaque non detectee (manquee)
+
+### Rapports de Metriques
+
+Les rapports sont sauvegardes dans le dossier metrics/ au format JSON:
+
+```bash
+metrics/simulation_report_20241227_153417.json
+```
+
+Exemple de contenu:
 
 ```json
 {
-    "flow_id": "flow_001",
-    "timestamp": "2024-01-15T10:30:01Z",
-    "explanation": {
-        "predicted_class": "DDoS",
-        "confidence": 0.95,
-        "all_probabilities": {
-            "Normal Traffic": 0.02,
-            "DDoS": 0.95,
-            "DoS": 0.02,
-            "Bots": 0.001
-        },
-        "reconstruction_error": 0.041,
-        "anomaly_score": 0.82,
-        "reason": "Attaque DDoS detectee avec 95% de confiance"
-    }
+  "summary": {
+    "total_flows": 1000,
+    "attacks_detected": 386,
+    "normal_traffic": 614
+  },
+  "confusion": {
+    "true_positives": 307,
+    "true_negatives": 613,
+    "false_positives": 79,
+    "false_negatives": 1
+  },
+  "metrics": {
+    "accuracy": 0.92,
+    "precision": 0.7953,
+    "recall": 0.9968,
+    "f1_score": 0.8847,
+    "false_positive_rate": 0.1142,
+    "false_negative_rate": 0.0032
+  },
+  "timing": {
+    "duration_seconds": 58.30,
+    "flows_per_second": 17.2
+  }
 }
 ```
 
+---
 
-## Liste des 37 Features
+## Exemples de Workflows
 
-Les features doivent etre fournies dans cet ordre exact:
+### Workflow 1: Test Rapide du Modele
 
- 1. Destination Port
- 2. Flow Duration
- 3. Total Fwd Packets
- 4. Total Length of Fwd Packets
- 5. Fwd Packet Length Max
- 6. Fwd Packet Length Min
- 7. Fwd Packet Length Mean
- 8. Fwd Packet Length Std
- 9. Bwd Packet Length Max
-10. Bwd Packet Length Min
-11. Bwd Packet Length Mean
-12. Bwd Packet Length Std
-13. Flow Bytes/s
-14. Flow Packets/s
-15. Flow IAT Mean
-16. Flow IAT Std
-17. Flow IAT Max
-18. Flow IAT Min
-19. Fwd IAT Total
-20. Fwd IAT Mean
-21. Fwd IAT Std
-22. Fwd IAT Max
-23. Fwd IAT Min
-24. Bwd IAT Total
-25. Bwd IAT Mean
-26. Bwd IAT Std
-27. Bwd IAT Max
-28. Bwd IAT Min
-29. Fwd Header Length
-30. Bwd Header Length
-31. Fwd Packets/s
-32. Bwd Packets/s
-33. Min Packet Length
-34. Max Packet Length
-35. Packet Length Mean
-36. Packet Length Std
-37. Packet Length Variance
+```bash
+# Terminal unique
+cd app
+python kafka_ids_pipeline.py --mode simulation --count 200 --verbose
+```
 
-Fichier de reference: ../models/feature_names.json
+### Workflow 2: Pipeline Kafka Complet
 
+```bash
+# Terminal 1: Demarrer le consumer
+cd app
+python kafka_ids_pipeline.py --mode consumer --verbose
 
-## Classes de Detection
+# Terminal 2: Demarrer le producer
+cd app
+python kafka_ids_pipeline.py --mode producer --count 1000 --attack-ratio 0.3 --delay 0.01
+
+# Terminal 3: Observer les alertes
+docker exec -it kafka kafka-console-consumer \
+  --topic ids-alerts \
+  --bootstrap-server localhost:9092
+```
+
+### Workflow 3: Monitoring des Alertes en Temps Reel
+
+```bash
+# Terminal 1: Consumer en arriere-plan
+python kafka_ids_pipeline.py --mode consumer &
+
+# Terminal 2: Lire les alertes
+docker exec -it kafka kafka-console-consumer \
+  --topic ids-alerts \
+  --bootstrap-server localhost:9092 \
+  --property print.timestamp=true
+
+# Terminal 3: Lire les explications
+docker exec -it kafka kafka-console-consumer \
+  --topic ids-explanations \
+  --bootstrap-server localhost:9092
+```
+
+---
+
+## Troubleshooting
+
+### Erreur: Kafka non accessible
+
+Symptome:
+```
+[WARN] Kafka non disponible: NoBrokersAvailable
+```
+
+Solutions:
+1. Verifier que Docker est en cours d'execution: docker ps
+2. Verifier que le conteneur Kafka est demarre
+3. Verifier l'adresse du serveur avec --kafka-server
+
+### Erreur: Modele non trouve
+
+Symptome:
+```
+FileNotFoundError: models/autoencoder_ids_v1.1.0.pt
+```
+
+Solution:
+Verifier que le dossier models/ contient tous les fichiers requis.
+
+### Erreur: Dataset non trouve
+
+Symptome:
+```
+FileNotFoundError: dataset/cicids2017_cleaned.csv
+```
+
+Solution:
+Telecharger le dataset depuis CICIDS2017 et le placer dans le dossier dataset/.
+
+### Erreur: Version sklearn incompatible
+
+Symptome:
+```
+InconsistentVersionWarning: Trying to unpickle estimator StandardScaler from version X
+```
+
+Solution:
+Ce warning peut etre ignore. Pour l'eliminer, reinstaller sklearn avec la meme version utilisee pour l'entrainement.
+
+### Performance lente
+
+Solutions:
+1. Reduire le nombre de flux avec --count
+2. Desactiver le mode verbose
+3. Utiliser un GPU si disponible (le modele detecte automatiquement CUDA)
+
+---
+
+## Classes Detectees
+
+Le modele detecte 7 types de trafic:
 
 | ID | Classe | Description |
 |----|--------|-------------|
 | 0 | Bots | Machines infectees (botnets) |
 | 1 | Brute Force | Attaques par force brute |
-| 2 | DDoS | Deni de service distribue |
-| 3 | DoS | Deni de service |
+| 2 | DDoS | Distributed Denial of Service |
+| 3 | DoS | Denial of Service |
 | 4 | Normal Traffic | Trafic legitime |
 | 5 | Port Scanning | Scan de ports |
-| 6 | Web Attacks | Attaques web (SQL injection, XSS) |
+| 6 | Web Attacks | SQL Injection, XSS, etc. |
 
+---
 
-## Evaluation des Performances
+## Contact
 
-Apres une session de traitement, un rapport JSON est genere dans le dossier metrics/.
-
-Pour afficher une analyse detaillee:
-```
-python evaluate_performance.py
-```
-
-Metriques calculees:
-- True Positives (TP): Attaques detectees correctement
-- True Negatives (TN): Trafic normal identifie correctement
-- False Positives (FP): Fausses alertes
-- False Negatives (FN): Attaques manquees
-- Precision, Recall, F1-Score par classe
-
-
-## Structure des Fichiers
-
-```
-app/
-    config.py              - Configuration (Kafka, modele, paths)
-    predictor.py           - Classe de prediction (charge le modele)
-    traffic_simulator.py   - Simulateur de trafic depuis le dataset
-    metrics_tracker.py     - Calcul des metriques FP/FN/TP/TN
-    kafka_ids_pipeline.py  - Pipeline principal (CLI)
-    evaluate_performance.py - Script d'evaluation des performances
-    metrics/               - Rapports JSON generes
-
-models/
-    autoencoder_ids_v1.1.0.pt  - Modele PyTorch
-    model_config.json          - Configuration du modele
-    scaler.joblib              - Normalisateur
-    label_encoder.joblib       - Encodeur des labels
-    feature_names.json         - Liste des 37 features
-    percentiles.joblib         - Percentiles pour clipping
-```
-
-
-## Exemples d'Integration
-
-### Envoyer un flux depuis Python
-
-```python
-from kafka import KafkaProducer
-import json
-
-producer = KafkaProducer(
-    bootstrap_servers='localhost:9092',
-    value_serializer=lambda v: json.dumps(v).encode('utf-8')
-)
-
-flow = {
-    "flow_id": "test_001",
-    "features": [80, 1000, 10, 500, ...],  # 37 valeurs
-    "timestamp": "2024-01-15T10:30:00Z"
-}
-
-producer.send('ids-raw-data', flow)
-producer.flush()
-```
-
-
-### Recevoir les alertes depuis Python
-
-```python
-from kafka import KafkaConsumer
-import json
-
-consumer = KafkaConsumer(
-    'ids-alerts',
-    bootstrap_servers='localhost:9092',
-    value_deserializer=lambda m: json.loads(m.decode('utf-8'))
-)
-
-for message in consumer:
-    alert = message.value
-    if alert['alert_type'] == 'ATTACK_DETECTED':
-        print(f"ALERTE: {alert['predicted_class']} - Confiance: {alert['confidence']}")
-```
-
-
-## Depannage
-
-Erreur: kafka-python non installe
-```
-pip install kafka-python
-```
-
-Erreur: Connection refused au broker Kafka
-- Verifier que le cluster Kafka est demarre
-- Verifier l'adresse du broker avec --bootstrap-servers
-
-Erreur: Topic not found
-- Verifier que les topics sont crees dans Kafka
-- Lister les topics: docker exec -it kafka kafka-topics --list --bootstrap-server localhost:9092
-
-Performances lentes
-- Reduire le delai avec --delay 0.001
-- Augmenter les partitions des topics Kafka
-
-
-## Auteur
-
-Faissal Marzouki - Decembre 2024
+Pour toute question, contacter l'equipe du projet.

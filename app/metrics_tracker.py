@@ -1,310 +1,232 @@
-# ============================================================================
-# METRICS_TRACKER.PY - Suivi des métriques FP, FN, TP, TN en temps réel
-# ============================================================================
 """
-Module de suivi des métriques de performance de l'IDS.
-Calcule en temps réel: TP, TN, FP, FN, Precision, Recall, F1, etc.
+Metrics Tracker Module
+Calcule et suit les metriques de performance en temps reel
 """
 
-import numpy as np
-from collections import defaultdict
-from dataclasses import dataclass, field
-from typing import List, Dict, Optional
-from datetime import datetime
 import json
+import time
+from datetime import datetime
+from typing import Dict, List, Optional
+from dataclasses import dataclass, field
+from collections import defaultdict
 
 
 @dataclass
-class ConfusionMetrics:
-    """Métriques de confusion pour une classe."""
-    true_positives: int = 0
-    true_negatives: int = 0
-    false_positives: int = 0
-    false_negatives: int = 0
+class MetricsReport:
+    """Rapport de metriques"""
+    total_flows: int
+    total_attacks_detected: int
+    total_normal: int
     
-    @property
-    def precision(self) -> float:
-        if self.true_positives + self.false_positives == 0:
-            return 0.0
-        return self.true_positives / (self.true_positives + self.false_positives)
+    # Confusion metrics
+    true_positives: int   # Attaque predite comme attaque
+    true_negatives: int   # Normal predit comme normal
+    false_positives: int  # Normal predit comme attaque
+    false_negatives: int  # Attaque predite comme normal
     
-    @property
-    def recall(self) -> float:
-        if self.true_positives + self.false_negatives == 0:
-            return 0.0
-        return self.true_positives / (self.true_positives + self.false_negatives)
+    # Metriques calculees
+    accuracy: float
+    precision: float
+    recall: float
+    f1_score: float
+    false_positive_rate: float
+    false_negative_rate: float
     
-    @property
-    def f1_score(self) -> float:
-        if self.precision + self.recall == 0:
-            return 0.0
-        return 2 * (self.precision * self.recall) / (self.precision + self.recall)
+    # Par classe
+    per_class_metrics: Dict[str, Dict]
+    confusion_matrix: Dict[str, Dict[str, int]]
     
-    @property
-    def accuracy(self) -> float:
-        total = self.true_positives + self.true_negatives + self.false_positives + self.false_negatives
-        if total == 0:
-            return 0.0
-        return (self.true_positives + self.true_negatives) / total
+    # Temps
+    start_time: str
+    end_time: str
+    duration_seconds: float
+    flows_per_second: float
+    
+    def to_dict(self) -> Dict:
+        return {
+            'summary': {
+                'total_flows': self.total_flows,
+                'attacks_detected': self.total_attacks_detected,
+                'normal_traffic': self.total_normal,
+            },
+            'confusion': {
+                'true_positives': self.true_positives,
+                'true_negatives': self.true_negatives,
+                'false_positives': self.false_positives,
+                'false_negatives': self.false_negatives,
+            },
+            'metrics': {
+                'accuracy': round(self.accuracy, 4),
+                'precision': round(self.precision, 4),
+                'recall': round(self.recall, 4),
+                'f1_score': round(self.f1_score, 4),
+                'false_positive_rate': round(self.false_positive_rate, 4),
+                'false_negative_rate': round(self.false_negative_rate, 4),
+            },
+            'per_class': self.per_class_metrics,
+            'confusion_matrix': self.confusion_matrix,
+            'timing': {
+                'start_time': self.start_time,
+                'end_time': self.end_time,
+                'duration_seconds': round(self.duration_seconds, 2),
+                'flows_per_second': round(self.flows_per_second, 2),
+            }
+        }
+    
+    def to_json(self) -> str:
+        return json.dumps(self.to_dict(), indent=2)
 
 
 class MetricsTracker:
-    """
-    Tracker de métriques en temps réel pour l'IDS.
-    
-    Usage:
-        tracker = MetricsTracker(class_names=['Normal', 'DDoS', 'DoS'])
-        tracker.update(true_label='DDoS', predicted_label='DDoS', confidence=0.95)
-        report = tracker.get_report()
-    """
+    """Tracker de metriques en temps reel"""
     
     def __init__(self, class_names: List[str]):
+        self.class_names = class_names
+        self.reset()
+    
+    def reset(self):
+        """Reinitialise toutes les metriques"""
+        self.start_time = datetime.now()
+        self.total_flows = 0
+        
+        # Compteurs par classe: [true_label][predicted_label] = count
+        self.confusion = defaultdict(lambda: defaultdict(int))
+        
+        # Listes pour analyse detaillee
+        self.predictions = []
+        self.true_labels = []
+        self.confidences = []
+        self.anomaly_scores = []
+    
+    def update(self, true_label: str, predicted_label: str, 
+               confidence: float, anomaly_score: float):
         """
-        Initialise le tracker.
+        Met a jour les metriques avec une nouvelle prediction
         
         Args:
-            class_names: Liste des noms de classes
+            true_label: Label reel du flux
+            predicted_label: Label predit par le modele
+            confidence: Confiance de la prediction
+            anomaly_score: Score d'anomalie
         """
-        self.class_names = class_names
-        self.normal_class = "Normal Traffic"
+        self.total_flows += 1
+        self.confusion[true_label][predicted_label] += 1
         
-        # Métriques par classe
-        self.class_metrics: Dict[str, ConfusionMetrics] = {
-            name: ConfusionMetrics() for name in class_names
-        }
+        self.predictions.append(predicted_label)
+        self.true_labels.append(true_label)
+        self.confidences.append(confidence)
+        self.anomaly_scores.append(anomaly_score)
+    
+    def get_report(self) -> MetricsReport:
+        """Genere un rapport complet des metriques"""
+        end_time = datetime.now()
+        duration = (end_time - self.start_time).total_seconds()
         
-        # Métriques globales (attaque vs normal)
-        self.global_metrics = ConfusionMetrics()
+        # Calculer TP, TN, FP, FN (binaire: Normal vs Attack)
+        tp = tn = fp = fn = 0
+        total_attacks = 0
+        total_normal = 0
         
-        # Historique détaillé
-        self.predictions_history: List[Dict] = []
+        for true_label, preds in self.confusion.items():
+            is_true_attack = true_label != 'Normal Traffic'
+            
+            for pred_label, count in preds.items():
+                is_pred_attack = pred_label != 'Normal Traffic'
+                
+                if is_true_attack:
+                    total_attacks += count
+                    if is_pred_attack:
+                        tp += count  # Attaque correctement detectee
+                    else:
+                        fn += count  # Attaque manquee
+                else:
+                    total_normal += count
+                    if is_pred_attack:
+                        fp += count  # Fausse alerte
+                    else:
+                        tn += count  # Normal correctement identifie
+        
+        # Metriques globales
+        accuracy = (tp + tn) / max(self.total_flows, 1)
+        precision = tp / max(tp + fp, 1)
+        recall = tp / max(tp + fn, 1)
+        f1 = 2 * precision * recall / max(precision + recall, 1e-10)
+        fpr = fp / max(fp + tn, 1)
+        fnr = fn / max(fn + tp, 1)
+        
+        # Metriques par classe
+        per_class = {}
+        for cls in self.class_names:
+            cls_tp = self.confusion[cls].get(cls, 0)
+            cls_total_true = sum(self.confusion[cls].values())
+            cls_total_pred = sum(self.confusion[t].get(cls, 0) for t in self.confusion)
+            
+            cls_precision = cls_tp / max(cls_total_pred, 1)
+            cls_recall = cls_tp / max(cls_total_true, 1)
+            cls_f1 = 2 * cls_precision * cls_recall / max(cls_precision + cls_recall, 1e-10)
+            
+            per_class[cls] = {
+                'true_count': cls_total_true,
+                'predicted_count': cls_total_pred,
+                'correct': cls_tp,
+                'precision': round(cls_precision, 4),
+                'recall': round(cls_recall, 4),
+                'f1_score': round(cls_f1, 4)
+            }
         
         # Matrice de confusion
-        self.confusion_matrix = defaultdict(lambda: defaultdict(int))
-        
-        # Compteurs
-        self.total_predictions = 0
-        self.total_correct = 0
-        
-        # Timestamp de début
-        self.start_time = datetime.now()
-    
-    def update(
-        self, 
-        true_label: str, 
-        predicted_label: str, 
-        confidence: float,
-        anomaly_score: float = 0.0,
-        flow_id: Optional[str] = None
-    ):
-        """
-        Met à jour les métriques avec une nouvelle prédiction.
-        
-        Args:
-            true_label: Label réel
-            predicted_label: Label prédit
-            confidence: Confiance de la prédiction
-            anomaly_score: Score d'anomalie
-            flow_id: ID du flux (optionnel)
-        """
-        self.total_predictions += 1
-        is_correct = (true_label == predicted_label)
-        
-        if is_correct:
-            self.total_correct += 1
-        
-        # Mise à jour de la matrice de confusion
-        self.confusion_matrix[true_label][predicted_label] += 1
-        
-        # Déterminer si c'est une attaque
-        true_is_attack = (true_label != self.normal_class)
-        pred_is_attack = (predicted_label != self.normal_class)
-        
-        # Mise à jour des métriques globales (attack detection)
-        if true_is_attack and pred_is_attack:
-            self.global_metrics.true_positives += 1
-        elif not true_is_attack and not pred_is_attack:
-            self.global_metrics.true_negatives += 1
-        elif not true_is_attack and pred_is_attack:
-            self.global_metrics.false_positives += 1
-        else:  # true_is_attack and not pred_is_attack
-            self.global_metrics.false_negatives += 1
-        
-        # Mise à jour des métriques par classe
-        for class_name in self.class_names:
-            metrics = self.class_metrics[class_name]
-            
-            if true_label == class_name and predicted_label == class_name:
-                metrics.true_positives += 1
-            elif true_label != class_name and predicted_label != class_name:
-                metrics.true_negatives += 1
-            elif true_label != class_name and predicted_label == class_name:
-                metrics.false_positives += 1
-            else:  # true_label == class_name and predicted_label != class_name
-                metrics.false_negatives += 1
-        
-        # Enregistrer dans l'historique
-        self.predictions_history.append({
-            "flow_id": flow_id,
-            "true_label": true_label,
-            "predicted_label": predicted_label,
-            "is_correct": is_correct,
-            "confidence": confidence,
-            "anomaly_score": anomaly_score,
-            "timestamp": datetime.now().isoformat()
-        })
-    
-    def get_overall_accuracy(self) -> float:
-        """Retourne l'accuracy globale."""
-        if self.total_predictions == 0:
-            return 0.0
-        return self.total_correct / self.total_predictions
-    
-    def get_attack_detection_rate(self) -> float:
-        """Retourne le taux de détection des attaques (recall global)."""
-        return self.global_metrics.recall
-    
-    def get_false_positive_rate(self) -> float:
-        """Retourne le taux de faux positifs."""
-        tn = self.global_metrics.true_negatives
-        fp = self.global_metrics.false_positives
-        if tn + fp == 0:
-            return 0.0
-        return fp / (tn + fp)
-    
-    def get_false_negative_rate(self) -> float:
-        """Retourne le taux de faux négatifs."""
-        tp = self.global_metrics.true_positives
-        fn = self.global_metrics.false_negatives
-        if tp + fn == 0:
-            return 0.0
-        return fn / (tp + fn)
-    
-    def get_class_report(self) -> Dict:
-        """Retourne un rapport détaillé par classe."""
-        report = {}
-        for class_name, metrics in self.class_metrics.items():
-            report[class_name] = {
-                "precision": metrics.precision,
-                "recall": metrics.recall,
-                "f1_score": metrics.f1_score,
-                "true_positives": metrics.true_positives,
-                "false_positives": metrics.false_positives,
-                "false_negatives": metrics.false_negatives,
-                "support": metrics.true_positives + metrics.false_negatives
-            }
-        return report
-    
-    def get_confusion_matrix_dict(self) -> Dict:
-        """Retourne la matrice de confusion sous forme de dictionnaire."""
-        return {
-            true_label: dict(predictions) 
-            for true_label, predictions in self.confusion_matrix.items()
+        confusion_matrix = {
+            true_label: dict(preds) 
+            for true_label, preds in self.confusion.items()
         }
-    
-    def get_report(self) -> Dict:
-        """Génère un rapport complet des métriques."""
-        elapsed = (datetime.now() - self.start_time).total_seconds()
         
-        return {
-            "summary": {
-                "total_predictions": self.total_predictions,
-                "total_correct": self.total_correct,
-                "overall_accuracy": self.get_overall_accuracy(),
-                "elapsed_seconds": elapsed,
-                "predictions_per_second": self.total_predictions / elapsed if elapsed > 0 else 0
-            },
-            "attack_detection": {
-                "true_positives": self.global_metrics.true_positives,
-                "true_negatives": self.global_metrics.true_negatives,
-                "false_positives": self.global_metrics.false_positives,
-                "false_negatives": self.global_metrics.false_negatives,
-                "precision": self.global_metrics.precision,
-                "recall": self.global_metrics.recall,
-                "f1_score": self.global_metrics.f1_score,
-                "false_positive_rate": self.get_false_positive_rate(),
-                "false_negative_rate": self.get_false_negative_rate()
-            },
-            "per_class": self.get_class_report(),
-            "confusion_matrix": self.get_confusion_matrix_dict()
-        }
+        return MetricsReport(
+            total_flows=self.total_flows,
+            total_attacks_detected=tp + fp,
+            total_normal=tn + fn,
+            true_positives=tp,
+            true_negatives=tn,
+            false_positives=fp,
+            false_negatives=fn,
+            accuracy=accuracy,
+            precision=precision,
+            recall=recall,
+            f1_score=f1,
+            false_positive_rate=fpr,
+            false_negative_rate=fnr,
+            per_class_metrics=per_class,
+            confusion_matrix=confusion_matrix,
+            start_time=self.start_time.isoformat(),
+            end_time=end_time.isoformat(),
+            duration_seconds=duration,
+            flows_per_second=self.total_flows / max(duration, 0.001)
+        )
     
-    def print_report(self):
-        """Affiche un rapport formaté."""
+    def print_summary(self):
+        """Affiche un resume des metriques"""
         report = self.get_report()
         
-        print("\n" + "=" * 70)
-        print("📊 RAPPORT DE MÉTRIQUES IDS")
-        print("=" * 70)
+        print("\n" + "="*60)
+        print("RAPPORT DE DETECTION IDS")
+        print("="*60)
         
-        summary = report["summary"]
-        print(f"\n📈 RÉSUMÉ:")
-        print(f"   • Total prédictions: {summary['total_predictions']:,}")
-        print(f"   • Prédictions correctes: {summary['total_correct']:,}")
-        print(f"   • Accuracy globale: {summary['overall_accuracy']:.2%}")
-        print(f"   • Durée: {summary['elapsed_seconds']:.1f}s")
-        print(f"   • Débit: {summary['predictions_per_second']:.1f} pred/s")
+        print(f"\nFlux traites: {report.total_flows}")
+        print(f"Duree: {report.duration_seconds:.2f}s ({report.flows_per_second:.1f} flux/s)")
         
-        attack = report["attack_detection"]
-        print(f"\n🛡️ DÉTECTION D'ATTAQUES:")
-        print(f"   • True Positives (attaques détectées): {attack['true_positives']:,}")
-        print(f"   • True Negatives (normal correct): {attack['true_negatives']:,}")
-        print(f"   • False Positives (fausses alertes): {attack['false_positives']:,}")
-        print(f"   • False Negatives (attaques manquées): {attack['false_negatives']:,}")
-        print(f"   • Precision: {attack['precision']:.2%}")
-        print(f"   • Recall (Detection Rate): {attack['recall']:.2%}")
-        print(f"   • F1-Score: {attack['f1_score']:.2%}")
-        print(f"   • Taux FP: {attack['false_positive_rate']:.2%}")
-        print(f"   • Taux FN: {attack['false_negative_rate']:.2%}")
+        print("\n--- METRIQUES BINAIRES (Attack vs Normal) ---")
+        print(f"Accuracy:     {report.accuracy:.2%}")
+        print(f"Precision:    {report.precision:.2%}")
+        print(f"Recall:       {report.recall:.2%}")
+        print(f"F1-Score:     {report.f1_score:.2%}")
         
-        print(f"\n📋 MÉTRIQUES PAR CLASSE:")
-        print(f"   {'Classe':<20} {'Precision':>10} {'Recall':>10} {'F1':>10} {'Support':>10}")
-        print("   " + "-" * 60)
+        print("\n--- ERREURS ---")
+        print(f"Faux Positifs (FP): {report.false_positives} ({report.false_positive_rate:.2%})")
+        print(f"Faux Negatifs (FN): {report.false_negatives} ({report.false_negative_rate:.2%})")
         
-        for class_name, metrics in report["per_class"].items():
-            print(f"   {class_name:<20} {metrics['precision']:>10.2%} "
-                  f"{metrics['recall']:>10.2%} {metrics['f1_score']:>10.2%} "
-                  f"{metrics['support']:>10,}")
+        print("\n--- MATRICE DE CONFUSION ---")
+        print(f"True Positives:  {report.true_positives}")
+        print(f"True Negatives:  {report.true_negatives}")
+        print(f"False Positives: {report.false_positives}")
+        print(f"False Negatives: {report.false_negatives}")
         
-        print("\n" + "=" * 70)
-    
-    def save_report(self, filepath: str):
-        """Sauvegarde le rapport en JSON."""
-        report = self.get_report()
-        with open(filepath, 'w') as f:
-            json.dump(report, f, indent=2)
-        print(f"✅ Rapport sauvegardé: {filepath}")
-    
-    def get_recent_errors(self, n: int = 10) -> List[Dict]:
-        """Retourne les N dernières erreurs de prédiction."""
-        errors = [p for p in self.predictions_history if not p['is_correct']]
-        return errors[-n:]
-
-
-# ============================================================================
-# TEST STANDALONE
-# ============================================================================
-
-if __name__ == "__main__":
-    print("=" * 60)
-    print("TEST DU METRICS TRACKER")
-    print("=" * 60)
-    
-    # Créer un tracker
-    class_names = ["Normal Traffic", "DDoS", "DoS", "Bots", "Port Scanning"]
-    tracker = MetricsTracker(class_names)
-    
-    # Simuler des prédictions
-    import random
-    for i in range(100):
-        true = random.choice(class_names)
-        # 90% de chance de prédiction correcte
-        pred = true if random.random() < 0.9 else random.choice(class_names)
-        conf = random.uniform(0.7, 0.99)
-        
-        tracker.update(true, pred, conf)
-    
-    # Afficher le rapport
-    tracker.print_report()
-    
-    print("\n✅ Test réussi!")
+        print("\n" + "="*60)

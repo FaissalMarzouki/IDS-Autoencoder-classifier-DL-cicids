@@ -1,0 +1,116 @@
+{
+  "summary": {
+    "total_flows": 1000,
+    "attacks_detected": 386,
+    "normal_traffic": 614
+  },
+  "confusion": {
+    "true_positives": 307,
+    "true_negatives": 613,
+    "false_positives": 79,
+    "false_negatives": 1
+  },
+  "metrics": {
+    "accuracy": 0.92,
+    "precision": 0.7953,
+    "recall": 0.9968,
+    "f1_score": 0.8847,
+    "false_positive_rate": 0.1142,
+    "false_negative_rate": 0.0032
+  },
+  "per_class": {
+    "Bots": {
+      "true_count": 48,
+      "predicted_count": 77,
+      "correct": 48,
+      "precision": 0.6234,
+      "recall": 1.0,
+      "f1_score": 0.768
+    },
+    "Brute Force": {
+      "true_count": 61,
+      "predicted_count": 70,
+      "correct": 61,
+      "precision": 0.8714,
+      "recall": 1.0,
+      "f1_score": 0.9313
+    },
+    "DDoS": {
+      "true_count": 54,
+      "predicted_count": 58,
+      "correct": 54,
+      "precision": 0.931,
+      "recall": 1.0,
+      "f1_score": 0.9643
+    },
+    "DoS": {
+      "true_count": 49,
+      "predicted_count": 54,
+      "correct": 47,
+      "precision": 0.8704,
+      "recall": 0.9592,
+      "f1_score": 0.9126
+    },
+    "Normal Traffic": {
+      "true_count": 692,
+      "predicted_count": 614,
+      "correct": 613,
+      "precision": 0.9984,
+      "recall": 0.8858,
+      "f1_score": 0.9387
+    },
+    "Port Scanning": {
+      "true_count": 46,
+      "predicted_count": 63,
+      "correct": 46,
+      "precision": 0.7302,
+      "recall": 1.0,
+      "f1_score": 0.844
+    },
+    "Web Attacks": {
+      "true_count": 50,
+      "predicted_count": 64,
+      "correct": 50,
+      "precision": 0.7812,
+      "recall": 1.0,
+      "f1_score": 0.8772
+    }
+  },
+  "confusion_matrix": {
+    "Web Attacks": {
+      "Web Attacks": 50
+    },
+    "Normal Traffic": {
+      "Normal Traffic": 613,
+      "Brute Force": 9,
+      "Web Attacks": 13,
+      "DoS": 7,
+      "Bots": 29,
+      "Port Scanning": 17,
+      "DDoS": 4
+    },
+    "DoS": {
+      "DoS": 47,
+      "Web Attacks": 1,
+      "Normal Traffic": 1
+    },
+    "DDoS": {
+      "DDoS": 54
+    },
+    "Bots": {
+      "Bots": 48
+    },
+    "Port Scanning": {
+      "Port Scanning": 46
+    },
+    "Brute Force": {
+      "Brute Force": 61
+    }
+  },
+  "timing": {
+    "start_time": "2025-12-27T15:34:45.174728",
+    "end_time": "2025-12-27T15:35:43.484285",
+    "duration_seconds": 58.31,
+    "flows_per_second": 17.15
+  }
+}

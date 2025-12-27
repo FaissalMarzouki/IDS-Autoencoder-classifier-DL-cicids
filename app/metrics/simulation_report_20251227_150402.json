@@ -1,0 +1,114 @@
+{
+  "summary": {
+    "total_predictions": 1000,
+    "total_correct": 908,
+    "overall_accuracy": 0.908,
+    "elapsed_seconds": 1.733974,
+    "predictions_per_second": 576.7099160656388
+  },
+  "attack_detection": {
+    "true_positives": 160,
+    "true_negatives": 751,
+    "false_positives": 88,
+    "false_negatives": 1,
+    "precision": 0.6451612903225806,
+    "recall": 0.9937888198757764,
+    "f1_score": 0.78239608801956,
+    "false_positive_rate": 0.10488676996424315,
+    "false_negative_rate": 0.006211180124223602
+  },
+  "per_class": {
+    "Bots": {
+      "precision": 0.08571428571428572,
+      "recall": 1.0,
+      "f1_score": 0.15789473684210528,
+      "true_positives": 3,
+      "false_positives": 32,
+      "false_negatives": 0,
+      "support": 3
+    },
+    "Brute Force": {
+      "precision": 0.13043478260869565,
+      "recall": 0.75,
+      "f1_score": 0.22222222222222218,
+      "true_positives": 3,
+      "false_positives": 20,
+      "false_negatives": 1,
+      "support": 4
+    },
+    "DDoS": {
+      "precision": 0.9285714285714286,
+      "recall": 1.0,
+      "f1_score": 0.962962962962963,
+      "true_positives": 52,
+      "false_positives": 4,
+      "false_negatives": 0,
+      "support": 52
+    },
+    "DoS": {
+      "precision": 0.8701298701298701,
+      "recall": 0.9571428571428572,
+      "f1_score": 0.9115646258503401,
+      "true_positives": 67,
+      "false_positives": 10,
+      "false_negatives": 3,
+      "support": 70
+    },
+    "Normal Traffic": {
+      "precision": 0.9986702127659575,
+      "recall": 0.8951132300357568,
+      "f1_score": 0.9440603394091766,
+      "true_positives": 751,
+      "false_positives": 1,
+      "false_negatives": 88,
+      "support": 839
+    },
+    "Port Scanning": {
+      "precision": 0.7441860465116279,
+      "recall": 1.0,
+      "f1_score": 0.8533333333333333,
+      "true_positives": 32,
+      "false_positives": 11,
+      "false_negatives": 0,
+      "support": 32
+    },
+    "Web Attacks": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1_score": 0.0,
+      "true_positives": 0,
+      "false_positives": 14,
+      "false_negatives": 0,
+      "support": 0
+    }
+  },
+  "confusion_matrix": {
+    "Normal Traffic": {
+      "Normal Traffic": 751,
+      "Bots": 32,
+      "Web Attacks": 13,
+      "DoS": 10,
+      "Brute Force": 18,
+      "DDoS": 4,
+      "Port Scanning": 11
+    },
+    "Port Scanning": {
+      "Port Scanning": 32
+    },
+    "DoS": {
+      "DoS": 67,
+      "Brute Force": 2,
+      "Normal Traffic": 1
+    },
+    "DDoS": {
+      "DDoS": 52
+    },
+    "Bots": {
+      "Bots": 3
+    },
+    "Brute Force": {
+      "Brute Force": 3,
+      "Web Attacks": 1
+    }
+  }
+}

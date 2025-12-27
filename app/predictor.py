@@ -1,9 +1,6 @@
-# ============================================================================
-# PREDICTOR.PY - Classe de prédiction IDS utilisant le modèle entraîné
-# ============================================================================
 """
-Module de prédiction pour le système IDS.
-Charge le modèle PyTorch entraîné et effectue des prédictions en temps réel.
+IDS Predictor Module
+Charge le modele AutoencoderIDS et effectue des predictions
 """
 
 import torch
@@ -11,43 +8,30 @@ import torch.nn as nn
 import numpy as np
 import joblib
 import json
-import os
+from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass, asdict
-from typing import List, Dict, Optional, Tuple
-from datetime import datetime
 
-
-# ============================================================================
-# DATACLASS POUR LES RÉSULTATS
-# ============================================================================
 
 @dataclass
 class PredictionResult:
-    """Résultat d'une prédiction IDS."""
+    """Resultat d'une prediction IDS"""
     flow_id: str
-    timestamp: str
     predicted_class: str
     predicted_class_id: int
     confidence: float
     anomaly_score: float
     is_attack: bool
-    is_anomaly: bool
     all_probabilities: Dict[str, float]
-    reconstruction_error: float
     
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict:
         return asdict(self)
     
     def to_json(self) -> str:
         return json.dumps(self.to_dict(), indent=2)
 
 
-# ============================================================================
-# ARCHITECTURE DU MODÈLE (identique au notebook)
-# ============================================================================
-
 class AutoencoderIDS(nn.Module):
-    """Architecture Autoencoder hybride pour la détection d'intrusions."""
+    """Architecture Autoencoder pour IDS"""
     
     def __init__(
         self, 
@@ -126,82 +110,27 @@ class AutoencoderIDS(nn.Module):
         return class_logits, reconstructed, recon_error
 
 
-# ============================================================================
-# CLASSE PREDICTOR
-# ============================================================================
-
 class IDSPredictor:
-    """
-    Classe principale pour effectuer des prédictions IDS.
+    """Classe principale pour les predictions IDS"""
     
-    Usage:
-        predictor = IDSPredictor('./models')
-        result = predictor.predict(features_array)
-        print(result.predicted_class, result.confidence)
-    """
-    
-    def __init__(self, models_dir: str = "../models"):
-        """
-        Initialise le prédicteur en chargeant tous les artefacts.
-        
-        Args:
-            models_dir: Chemin vers le dossier contenant les modèles
-        """
+    def __init__(self, models_dir: str = '../models'):
         self.models_dir = models_dir
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
         # Charger la configuration
-        self._load_config()
-        
-        # Charger les artefacts de preprocessing
-        self._load_preprocessing()
-        
-        # Charger le modèle
-        self._load_model()
-        
-        # Compteur pour les IDs de flux
-        self._flow_counter = 0
-        
-        print(f"✅ IDSPredictor initialisé sur {self.device}")
-        print(f"   • Classes: {self.class_names}")
-        print(f"   • Features: {self.config['input_dim']}")
-    
-    def _load_config(self):
-        """Charge la configuration du modèle."""
-        config_path = os.path.join(self.models_dir, "model_config.json")
-        with open(config_path, 'r') as f:
+        with open(f'{models_dir}/model_config.json', 'r') as f:
             self.config = json.load(f)
         
-        self.class_names = self.config['class_names']
-        self.thresholds = self.config.get('thresholds', {
-            'anomaly': 0.5,
-            'high_confidence': 0.85
-        })
-    
-    def _load_preprocessing(self):
-        """Charge les artefacts de preprocessing."""
-        # Scaler
-        scaler_path = os.path.join(self.models_dir, "scaler.joblib")
-        self.scaler = joblib.load(scaler_path)
-        
-        # Label Encoder
-        le_path = os.path.join(self.models_dir, "label_encoder.joblib")
-        self.label_encoder = joblib.load(le_path)
-        
-        # Feature names
-        features_path = os.path.join(self.models_dir, "feature_names.json")
-        with open(features_path, 'r') as f:
+        # Charger les noms des features
+        with open(f'{models_dir}/feature_names.json', 'r') as f:
             self.feature_names = json.load(f)
         
-        # Percentiles (pour clipping)
-        percentiles_path = os.path.join(self.models_dir, "percentiles.joblib")
-        if os.path.exists(percentiles_path):
-            self.percentiles = joblib.load(percentiles_path)
-        else:
-            self.percentiles = None
-    
-    def _load_model(self):
-        """Charge le modèle PyTorch."""
+        # Charger le scaler et label encoder
+        self.scaler = joblib.load(f'{models_dir}/scaler.joblib')
+        self.label_encoder = joblib.load(f'{models_dir}/label_encoder.joblib')
+        self.percentiles = joblib.load(f'{models_dir}/percentiles.joblib')
+        
+        # Charger le modele
         self.model = AutoencoderIDS(
             input_dim=self.config['input_dim'],
             latent_dim=self.config['latent_dim'],
@@ -209,171 +138,80 @@ class IDSPredictor:
             num_classes=self.config['num_classes']
         ).to(self.device)
         
-        model_path = os.path.join(self.models_dir, "autoencoder_ids_v1.1.0.pt")
-        checkpoint = torch.load(model_path, map_location=self.device, weights_only=False)
+        # Charger le checkpoint (format complet avec metadata)
+        checkpoint = torch.load(f'{models_dir}/autoencoder_ids_v1.1.0.pt', 
+                               map_location=self.device, weights_only=False)
         
-        # Le modèle peut être sauvegardé soit directement (state_dict) 
-        # soit dans un checkpoint complet avec 'model_state_dict'
+        # Extraire le state_dict selon le format
         if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
-            self.model.load_state_dict(checkpoint['model_state_dict'])
+            state_dict = checkpoint['model_state_dict']
         else:
-            self.model.load_state_dict(checkpoint)
+            state_dict = checkpoint
         
+        self.model.load_state_dict(state_dict)
         self.model.eval()
+        
+        # Seuils
+        self.anomaly_threshold = self.config['thresholds']['anomaly']
+        self.class_names = self.config['class_names']
+        
+        self._flow_counter = 0
     
-    def preprocess(self, features: np.ndarray) -> np.ndarray:
-        """
-        Prétraite les features avant prédiction.
+    def preprocess(self, features: np.ndarray) -> torch.Tensor:
+        """Preprocesse les features brutes"""
+        features = np.array(features).reshape(1, -1).astype(np.float64)
         
-        Args:
-            features: Array de features brutes (1D ou 2D)
-            
-        Returns:
-            Features normalisées
-        """
-        # Assurer que c'est 2D
-        if features.ndim == 1:
-            features = features.reshape(1, -1)
-        
-        # Clipping des outliers si percentiles disponibles
-        if self.percentiles is not None:
-            # Support pour différents formats de clés
-            lower_key = 'lower' if 'lower' in self.percentiles else 'p01'
-            upper_key = 'upper' if 'upper' in self.percentiles else 'p99'
-            
-            features = np.clip(
-                features, 
-                self.percentiles[lower_key], 
-                self.percentiles[upper_key]
-            )
+        # Clipping avec percentiles (format dict avec 'p01' et 'p99')
+        p01 = self.percentiles['p01']
+        p99 = self.percentiles['p99']
+        features = np.clip(features, p01, p99)
         
         # Normalisation
         features_scaled = self.scaler.transform(features)
         
-        return features_scaled
+        return torch.tensor(features_scaled, dtype=torch.float32).to(self.device)
     
-    def predict(
-        self, 
-        features: np.ndarray, 
-        flow_id: Optional[str] = None
-    ) -> PredictionResult:
-        """
-        Effectue une prédiction sur un flux réseau.
+    def predict(self, features: np.ndarray, flow_id: Optional[str] = None) -> PredictionResult:
+        """Effectue une prediction sur un flux reseau"""
         
-        Args:
-            features: Array de features (shape: (n_features,) ou (1, n_features))
-            flow_id: ID optionnel du flux (auto-généré si non fourni)
-            
-        Returns:
-            PredictionResult contenant tous les détails de la prédiction
-        """
-        # Générer un ID si nécessaire
         if flow_id is None:
             self._flow_counter += 1
             flow_id = f"flow_{self._flow_counter:08d}"
         
-        # Prétraitement
-        features_processed = self.preprocess(features)
+        # Preprocess
+        x = self.preprocess(features)
         
-        # Conversion en tensor
-        x = torch.tensor(features_processed, dtype=torch.float32).to(self.device)
-        
-        # Prédiction
+        # Prediction
         with torch.no_grad():
             logits, reconstructed, recon_error = self.model(x)
             probabilities = torch.softmax(logits, dim=1)
+            
+            predicted_class_id = torch.argmax(probabilities, dim=1).item()
+            confidence = probabilities[0, predicted_class_id].item()
+            anomaly_score = recon_error.item()
         
-        # Extraction des résultats
-        probs_np = probabilities.cpu().numpy()[0]
-        predicted_class_id = int(np.argmax(probs_np))
-        confidence = float(probs_np[predicted_class_id])
-        recon_error_value = float(recon_error.cpu().numpy()[0, 0])
-        
-        # Déterminer si c'est une attaque
         predicted_class = self.class_names[predicted_class_id]
-        is_attack = predicted_class != "Normal Traffic"
+        is_attack = predicted_class != 'Normal Traffic'
         
-        # Score d'anomalie normalisé (basé sur reconstruction error)
-        # Plus le score est élevé, plus c'est suspect
-        anomaly_score = min(recon_error_value / self.thresholds['anomaly'], 1.0)
-        is_anomaly = recon_error_value > self.thresholds['anomaly']
-        
-        # Dictionnaire des probabilités
+        # Probabilites par classe
         all_probs = {
-            self.class_names[i]: float(probs_np[i]) 
+            self.class_names[i]: round(probabilities[0, i].item(), 4)
             for i in range(len(self.class_names))
         }
         
         return PredictionResult(
             flow_id=flow_id,
-            timestamp=datetime.now().isoformat(),
             predicted_class=predicted_class,
             predicted_class_id=predicted_class_id,
-            confidence=confidence,
-            anomaly_score=anomaly_score,
+            confidence=round(confidence, 4),
+            anomaly_score=round(anomaly_score, 6),
             is_attack=is_attack,
-            is_anomaly=is_anomaly,
-            all_probabilities=all_probs,
-            reconstruction_error=recon_error_value
+            all_probabilities=all_probs
         )
     
-    def predict_batch(
-        self, 
-        features_batch: np.ndarray,
-        flow_ids: Optional[List[str]] = None
-    ) -> List[PredictionResult]:
-        """
-        Effectue des prédictions sur un batch de flux.
-        
-        Args:
-            features_batch: Array de features (shape: (n_samples, n_features))
-            flow_ids: Liste optionnelle d'IDs de flux
-            
-        Returns:
-            Liste de PredictionResult
-        """
-        n_samples = features_batch.shape[0]
-        
-        if flow_ids is None:
-            flow_ids = [None] * n_samples
-        
+    def predict_batch(self, features_batch: np.ndarray) -> List[PredictionResult]:
+        """Prediction sur un batch de flux"""
         results = []
-        for i in range(n_samples):
-            result = self.predict(features_batch[i], flow_ids[i])
-            results.append(result)
-        
+        for features in features_batch:
+            results.append(self.predict(features))
         return results
-
-
-# ============================================================================
-# TEST STANDALONE
-# ============================================================================
-
-if __name__ == "__main__":
-    import sys
-    
-    # Test basique
-    print("=" * 60)
-    print("TEST DU PREDICTOR IDS")
-    print("=" * 60)
-    
-    try:
-        predictor = IDSPredictor("../models")
-        
-        # Créer un flux de test (features aléatoires)
-        test_features = np.random.randn(predictor.config['input_dim'])
-        
-        result = predictor.predict(test_features)
-        
-        print(f"\n📊 Résultat de prédiction:")
-        print(f"   • Classe: {result.predicted_class}")
-        print(f"   • Confiance: {result.confidence:.2%}")
-        print(f"   • Score anomalie: {result.anomaly_score:.3f}")
-        print(f"   • Est attaque: {result.is_attack}")
-        print(f"   • Est anomalie: {result.is_anomaly}")
-        
-        print("\n✅ Test réussi!")
-        
-    except Exception as e:
-        print(f"❌ Erreur: {e}")
-        sys.exit(1)
