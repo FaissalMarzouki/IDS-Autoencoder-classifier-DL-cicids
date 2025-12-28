@@ -1,0 +1,27 @@
+# Créer ids-raw-data
+docker exec -it kafka kafka-topics --create \
+  --topic ids-raw-data \
+  --bootstrap-server localhost:9092 \
+  --partitions 3 \
+  --replication-factor 1
+
+# Créer ids-features
+docker exec -it kafka kafka-topics --create \
+  --topic ids-features \
+  --bootstrap-server localhost:9092 \
+  --partitions 3 \
+  --replication-factor 1
+
+# Créer ids-alerts
+docker exec -it kafka kafka-topics --create \
+  --topic ids-alerts \
+  --bootstrap-server localhost:9092 \
+  --partitions 1 \
+  --replication-factor 1
+
+# Créer ids-explanations
+docker exec -it kafka kafka-topics --create \
+  --topic ids-explanations \
+  --bootstrap-server localhost:9092 \
+  --partitions 1 \
+  --replication-factor 1

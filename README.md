@@ -1,10 +1,10 @@
-# 🛡️ IDS-Autoencoder-Classifier-DL-CICIDS
+# IDS-Autoencoder-Classifier-DL-CICIDS
 
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-red.svg)](https://pytorch.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-## 📋 Description
+## Description
 
 Système de Détection d'Intrusions (IDS) basé sur le **Deep Learning** utilisant une architecture hybride **Autoencoder + Classifier** pour la détection en temps réel d'attaques réseau.
 
@@ -12,7 +12,7 @@ Ce projet implémente une approche combinant:
 - **Détection supervisée** : Classification des attaques connues
 - **Détection d'anomalies** : Identification des comportements inhabituels via l'erreur de reconstruction
 
-## 🏗️ Architecture du Modèle
+## Architecture du Modèle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -30,7 +30,7 @@ Ce projet implémente une approche combinant:
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## 📊 Dataset
+## Dataset
 
 **CICIDS2017** - Canadian Institute for Cybersecurity Intrusion Detection Dataset
 - **2,520,751** flux réseau
@@ -48,7 +48,7 @@ Ce projet implémente une approche combinant:
 | WebAttack | Attaques web (SQL Injection, XSS, Brute Force) |
 | Infiltration | Intrusion dans le réseau |
 
-## 🚀 Installation
+## Installation
 
 ```bash
 # Cloner le repository
@@ -65,7 +65,7 @@ venv\Scripts\activate  # Windows
 pip install -r requirements.txt
 ```
 
-## 📦 Dépendances
+## Dépendances
 
 ```
 torch>=2.0.0
@@ -79,7 +79,7 @@ joblib>=1.3.0
 tqdm>=4.65.0
 ```
 
-## 📁 Structure du Projet
+## Structure du Projet
 
 ```
 IDS-Autoencoder-classifier-DL-cicids/
@@ -110,7 +110,7 @@ IDS-Autoencoder-classifier-DL-cicids/
 └── .gitignore
 ```
 
-## 🎯 Résultats
+## Résultats
 
 | Métrique | Score |
 |----------|-------|
@@ -126,7 +126,7 @@ IDS-Autoencoder-classifier-DL-cicids/
   <img src="results/latent_space_tsne.png" width="45%" />
 </p>
 
-## 💻 Utilisation
+## Utilisation
 
 ### Entraînement
 Exécuter le notebook `IDS_DL_NOTEBOOK_COMPLETE.ipynb` cellule par cellule.
@@ -170,7 +170,7 @@ with torch.no_grad():
 }
 ```
 
-## 🔬 Techniques Utilisées
+## Techniques Utilisées
 
 - **Focal Loss** : Gestion du déséquilibre des classes (ratio 1075:1)
 - **Batch Normalization** : Stabilisation de l'entraînement
@@ -179,20 +179,20 @@ with torch.no_grad():
 - **Under-sampling stratifié** : Équilibrage du dataset
 - **StandardScaler avec clipping** : Normalisation robuste aux outliers
 
-## 📚 Références
+## Références
 
 - [CICIDS2017 Dataset](https://www.unb.ca/cic/datasets/ids-2017.html)
 - [Autoencoder for Anomaly Detection](https://arxiv.org/abs/1906.02994)
 - [Focal Loss for Dense Object Detection](https://arxiv.org/abs/1708.02002)
 
-## 👤 Auteur
+## Auteur
 
 **Faissal Marzouki**
 
-## 📄 License
+## License
 
 Ce projet est sous licence MIT - voir le fichier [LICENSE](LICENSE) pour plus de détails.
 
 ---
 
-⭐ N'hésitez pas à mettre une étoile si ce projet vous a été utile!
+N'hésitez pas à mettre une étoile si ce projet vous a été utile!

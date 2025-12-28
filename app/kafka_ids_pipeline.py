@@ -302,7 +302,7 @@ Exemples:
                         help='Repertoire des modeles')
     parser.add_argument('--dataset', default='../dataset/cicids2017_cleaned.csv',
                         help='Chemin vers le dataset')
-    parser.add_argument('--kafka-server', default='localhost:9092',
+    parser.add_argument('--kafka-server', default='localhost:9093',
                         help='Adresse du serveur Kafka')
     parser.add_argument('--verbose', '-v', action='store_true',
                         help='Affichage detaille')
