@@ -1,0 +1,198 @@
+┌──(brokers)─(omar㉿Dell)-[~/…/ENSET/S5/Projet_IDS_Hybride/IDS-Autoencoder-classifier-DL-cicids]
+└─$ python3 tests/attack_simulation_test.py     
+🛠️  Initialisation du pipeline de test...
+/home/omar/Documents/ENSET/S5/Projet_IDS_Hybride/brokers/lib/python3.13/site-packages/sklearn/base.py:463: InconsistentVersionWarning: Trying to unpickle estimator StandardScaler from version 1.7.2 when using version 1.8.0. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:
+https://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations
+  warnings.warn(
+/home/omar/Documents/ENSET/S5/Projet_IDS_Hybride/brokers/lib/python3.13/site-packages/sklearn/base.py:463: InconsistentVersionWarning: Trying to unpickle estimator LabelEncoder from version 1.7.2 when using version 1.8.0. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:
+https://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations
+  warnings.warn(
+✅ Détecteur initialisé avec l'architecture hybride complète.
+
+================================================================================
+🚀 DÉMARRAGE DU TEST DE FLUX COMPLET (DEBUG MODE)
+================================================================================
+
+
+>>> 🟢 SCÉNARIO : NORMAL
+
+[Étape 1] Génération des données brutes
+  📥 INPUT  (Raw): {
+  "Destination Port": 443,
+  "Flow Duration": 60000.0,
+  "Total Fwd Packets": 30.0,
+  "Total Length of Fwd Packets": 6000.0,
+  "Fwd Packet Length Max": 1500.0,
+  "Fwd Packet Length Min": 20.0,
+  "Fwd Packet Length Mean": 200.0,
+  "Bwd Packet Length Max": 1500.0,
+  "Bwd Packet Length Min": 20.0,
+  "Flow Bytes/s": 200.0,
+  "Flow Packets/s": 1.0,
+  "Flow IAT Mean": 50.0,
+  "Flow IAT Std": 50.0,
+  "Flow IAT Max": 50.0,
+  "Flow IAT Min": 50.0,
+  "Fwd IAT Mean": 50.0,
+  "Fwd IAT Std": 50.0,
+  "Fwd IAT Min": 50.0,
+  "Bwd IAT Total": 50.0,
+  "Bwd IAT Mean": 50.0,
+  "Bwd IAT Std": 50.0,
+  "Bwd IAT Max": 50.0,
+  "Bwd IAT Min": 50.0,
+  "Bwd Packets/s": 50.0,
+  "Min Packet Length": 50.0,
+  "Max Packet Length": 50.0,
+  "Packet Length Mean": 50.0,
+  "Packet Length Variance": 50.0,
+  "FIN Flag Count": 1.0,
+  "PSH Flag Count": 15.0,
+  "ACK Flag Count": 25.0,
+  "Init_Win_bytes_forward": 65535.0,
+  "Init_Win_bytes_backward": 50.0,
+  "min_seg_size_forward": 40.0,
+  "Active Mean": 50.0,
+  "Active Max": 50.0,
+  "Active Min": 50.0,
+  "Total Bwd Packets": 25.0,
+  "Total Length of Bwd Packets": 5000.0,
+  "Bwd Packet Length Mean": 200.0,
+  "Fwd Packet Length Std": 300.0,
+  "SYN Flag Count": 1.0
+}
+
+[Étape 2] Preprocessing (Clipping & Scaling)
+  📥 INPUT  (au Preprocessor): 43 colonnes
+  📤 OUTPUT (Scaled): [-0.3138682662706347, -0.5974950831010097, 2.5128764702407778, 2.8987123019260714, 3.299051143672068]... (Total: 37 features)
+
+[Étape 3] Analyse par l'Autoencoder + Classifier
+  📥 INPUT  (Tensor): torch.Size([1, 37])
+  🔄 Features (scaled, first 5): [-0.34894954 -0.59906662 -0.2803949  -0.1789383  -0.3547224 ]
+  📤 OUTPUT (Pred): DoS
+  📊 CONFIDENCE: 90.62%
+  📊 Top 3 prédictions:
+     1. DoS: 90.62%
+     2. Normal Traffic: 9.38%
+     3. DDoS: 0.00%
+  🚨 ALERT GENERATED: DoS
+
+
+>>> 🟢 SCÉNARIO : DDOS
+
+[Étape 1] Génération des données brutes
+  📥 INPUT  (Raw): {
+  "Destination Port": 80,
+  "Flow Duration": 5.0,
+  "Total Fwd Packets": 100000.0,
+  "Total Length of Fwd Packets": 50000000.0,
+  "Fwd Packet Length Max": 1500.0,
+  "Fwd Packet Length Min": 40.0,
+  "Fwd Packet Length Mean": 500.0,
+  "Bwd Packet Length Max": 50.0,
+  "Bwd Packet Length Min": 50.0,
+  "Flow Bytes/s": 10000000.0,
+  "Flow Packets/s": 20000.0,
+  "Flow IAT Mean": 50.0,
+  "Flow IAT Std": 50.0,
+  "Flow IAT Max": 50.0,
+  "Flow IAT Min": 50.0,
+  "Fwd IAT Mean": 50.0,
+  "Fwd IAT Std": 50.0,
+  "Fwd IAT Min": 50.0,
+  "Bwd IAT Total": 50.0,
+  "Bwd IAT Mean": 50.0,
+  "Bwd IAT Std": 50.0,
+  "Bwd IAT Max": 50.0,
+  "Bwd IAT Min": 50.0,
+  "Bwd Packets/s": 50.0,
+  "Min Packet Length": 50.0,
+  "Max Packet Length": 50.0,
+  "Packet Length Mean": 50.0,
+  "Packet Length Variance": 50.0,
+  "FIN Flag Count": 50.0,
+  "PSH Flag Count": 30000.0,
+  "ACK Flag Count": 50000.0,
+  "Init_Win_bytes_forward": 65535.0,
+  "Init_Win_bytes_backward": 50.0,
+  "min_seg_size_forward": 40.0,
+  "Active Mean": 50.0,
+  "Active Max": 50.0,
+  "Active Min": 50.0,
+  "Total Bwd Packets": 1000.0,
+  "Total Length of Bwd Packets": 100000.0,
+  "Bwd Packet Length Mean": 100.0,
+  "Fwd Packet Length Std": 100.0,
+  "SYN Flag Count": 50.0
+}
+
+[Étape 2] Preprocessing (Clipping & Scaling)
+  📥 INPUT  (au Preprocessor): 43 colonnes
+  📤 OUTPUT (Scaled): [-0.34259396570017364, -0.5990664750920964, 10161.572954091134, 25659.30452032503, 3.299051143672068]... (Total: 37 features)
+
+[Étape 3] Analyse par l'Autoencoder + Classifier
+  📥 INPUT  (Tensor): torch.Size([1, 37])
+  🔄 Features (scaled, first 5): [-3.48951809e-01 -5.99066622e-01  1.03209433e+03  1.29876649e+01
+ -3.54722403e-01]
+  📤 OUTPUT (Pred): DoS
+  📊 CONFIDENCE: 100.00%
+  📊 Top 3 prédictions:
+     1. DoS: 100.00%
+     2. Port Scanning: 0.00%
+     3. Web Attacks: 0.00%
+  🚨 ALERT GENERATED: DoS
+
+
+>>> 🟢 SCÉNARIO : PORTSCAN
+
+[Étape 1] Génération des données brutes
+  📥 INPUT  (Raw): {
+  "Destination Port": 22,
+  "Flow Duration": 0.1,
+  "Total Fwd Packets": 1.0,
+  "Total Length of Fwd Packets": 40.0,
+  "Fwd Packet Length Max": 40.0,
+  "Fwd Packet Length Min": 40.0,
+  "Fwd Packet Length Mean": 40.0,
+  "Flow Bytes/s": 400.0,
+  "Flow Packets/s": 10.0,
+  "Flow IAT Mean": 50.0,
+  "Flow IAT Std": 50.0,
+  "Flow IAT Max": 50.0,
+  "Flow IAT Min": 50.0,
+  "Fwd IAT Mean": 50.0,
+  "Fwd IAT Std": 50.0,
+  "Fwd IAT Min": 50.0,
+  "Bwd IAT Total": 50.0,
+  "Bwd IAT Mean": 50.0,
+  "Bwd IAT Std": 50.0,
+  "Bwd IAT Max": 50.0,
+  "Bwd IAT Min": 50.0,
+  "Bwd Packets/s": 50.0,
+  "Min Packet Length": 50.0,
+  "Max Packet Length": 50.0,
+  "Packet Length Mean": 50.0,
+  "Packet Length Variance": 50.0,
+  "Init_Win_bytes_forward": 32768.0,
+  "Init_Win_bytes_backward": 50.0,
+  "min_seg_size_forward": 40.0,
+  "Active Mean": 50.0,
+  "Active Max": 50.0,
+  "Active Min": 50.0,
+  "SYN Flag Count": 1.0
+}
+
+[Étape 2] Preprocessing (Clipping & Scaling)
+  📥 INPUT  (au Preprocessor): 43 colonnes
+  📤 OUTPUT (Scaled): [-0.34718374687624326, -0.5990666034331373, -0.4341350557270719, -0.1598983036629534, -0.265127379603953]... (Total: 37 features)
+
+[Étape 3] Analyse par l'Autoencoder + Classifier
+  📥 INPUT  (Tensor): torch.Size([1, 37])
+  🔄 Features (scaled, first 5): [-0.34895217 -0.59906662 -0.57987342 -0.18050795 -0.36342334]
+  📤 OUTPUT (Pred): Normal Traffic
+  📊 CONFIDENCE: 95.91%
+  📊 Top 3 prédictions:
+     1. Normal Traffic: 95.91%
+     2. DDoS: 2.95%
+     3. DoS: 1.13%
+                     
