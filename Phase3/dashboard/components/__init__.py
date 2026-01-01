@@ -1,0 +1,3 @@
+"""
+Composants du dashboard
+"""
